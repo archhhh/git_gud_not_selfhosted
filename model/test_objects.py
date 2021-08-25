@@ -1,6 +1,7 @@
 import pytest
 
-from model.objects import Blob
+from typing import List
+from model.objects import Blob, TreeNode, TreeNodeEntry
 
 class TestBlob:
     def test_verify_encoded_data(self):
@@ -33,3 +34,34 @@ class TestBlob:
         blob = Blob('Hello World!')
 
         assert blob.encode() == b'blob 12\x00Hello World!'
+        assert blob.cached_encoded_data is not None
+
+
+class TestNode:
+    def test_encode(self):
+        tree_node_entries: List[TreeNodeEntry] = []
+
+        tree_node_entries.append(
+            TreeNodeEntry(
+                'test_dir',
+                'abcd'*10,
+                '010000',
+                'tree',
+            )
+        )
+        tree_node_entries.append(
+            TreeNodeEntry(
+                'test.txt',
+                'abcd'*10,
+                '100644',
+                'blob',
+            )
+        )
+
+        tested_tree_node = TreeNode(tree_node_entries)
+
+        assert tested_tree_node.encode() == \
+            b'tree 72\x00' + \
+            b'100644 test.txt ' + bytes.fromhex('abcd'*10) + \
+            b'010000 test_dir ' + bytes.fromhex('abcd'*10)
+        assert tested_tree_node.cached_encoded_data is not None
