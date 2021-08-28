@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import pytz
 
+from datetime import datetime
 from typing import Literal, List, Union
+
 
 class Object:
     @staticmethod
@@ -15,6 +18,15 @@ class Object:
 
     def __init__(self, type: str):
         self.type = type
+        self.cached_encoded_data: Union[bytes, None] = None
+
+    def encode_with_header(self, data_as_bytes: bytes) -> bytes:
+        len_of_data_as_bytes: str = str(len(data_as_bytes))
+        full_content_as_bytes = self.type.encode('utf-8') \
+            + b' ' + len_of_data_as_bytes.encode('utf-8') \
+            + b'\x00' + data_as_bytes
+
+        return full_content_as_bytes
 
     def encode(self) -> bytes:
         pass
@@ -67,16 +79,11 @@ class Blob(Object):
         super().__init__('blob')
 
         self.data: str = data
-        self.cached_encoded_data: Union[bytes, None] = None
 
     def encode(self) -> bytes:
         if self.cached_encoded_data == None:
             data_as_bytes: bytes = self.data.encode('utf-8')
-            len_of_data_as_bytes: str = str(len(data_as_bytes))
-            full_content_as_bytes = b'blob ' + len_of_data_as_bytes.encode('utf-8') \
-                + b'\x00' + data_as_bytes
-
-            self.cached_encoded_data = full_content_as_bytes
+            self.cached_encoded_data = self.encode_with_header(data_as_bytes)
 
         assert not self.cached_encoded_data is None
 
@@ -96,7 +103,7 @@ class TreeNodeEntry:
         self.oid = oid
         self.type = type
 
-    def to_byte_string(self):
+    def to_byte_string(self) -> bytes:
         return \
             bytes(f'{self.mode} {self.name} ', 'utf-8') \
             + bytes.fromhex(self.oid)
@@ -110,21 +117,58 @@ class TreeNode(Object):
     def __init__(self, entries: List[TreeNodeEntry]):
         super().__init__('tree')
 
-        self.cached_encoded_data: Union[bytes, None] = None
         self.entries = sorted(entries, key = lambda x: x.name)
     
-    def encode(self):
+    def encode(self) -> bytes:
         if self.cached_encoded_data == None:
-            entries_to_byte_string: List[bytes] = map(
+            entries_to_byte_string: map[bytes] = map(
                 lambda x: x.to_byte_string(), 
                 self.entries,
             )
             data_as_bytes = b''.join(entries_to_byte_string)
-            len_of_data_as_bytes: str = str(len(data_as_bytes))
-            full_content_as_bytes = b'tree ' + len_of_data_as_bytes.encode('utf-8') \
-                + b'\x00' + data_as_bytes
+            self.cached_encoded_data = self.encode_with_header(data_as_bytes)
 
-            self.cached_encoded_data = full_content_as_bytes
+        assert not self.cached_encoded_data is None
+
+        return self.cached_encoded_data
+
+
+class Commit(Object):
+    def __init__(
+        self,
+        name: str,
+        email: str,
+        message: str,
+        tree_oid: str,
+        date: datetime,
+        parent: Union[str, None] = None,
+    ):
+        super().__init__('commit')
+
+        self.name = name
+        self.email = email
+        self.message = message
+        self.tree_oid = tree_oid
+        self.timestamp = pytz.utc.localize(date).strftime('%s %z')
+        self.parent = parent
+    
+    def encode(self) -> bytes:
+        if self.cached_encoded_data == None:
+            author = f'{self.name} <{self.email}> {self.timestamp}'
+
+            lines: List[str] = [
+                f'tree {self.tree_oid}',
+                f'author {author}',
+                f'committer {author}',
+                '',
+                self.message + '\n',
+            ]
+
+            if self.parent != None:
+                lines.insert(1, f'parent {self.parent}')
+
+            data_as_bytes = '\n'.join(lines).encode()
+            self.cached_encoded_data = self.encode_with_header(data_as_bytes)
 
         assert not self.cached_encoded_data is None
 

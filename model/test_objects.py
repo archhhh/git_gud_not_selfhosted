@@ -1,7 +1,9 @@
 import pytest
+import pytz
 
+from datetime import datetime
 from typing import List
-from model.objects import Blob, TreeNode, TreeNodeEntry
+from model.objects import Blob, Commit, TreeNode, TreeNodeEntry
 
 class TestBlob:
     def test_verify_encoded_data(self):
@@ -65,3 +67,28 @@ class TestNode:
             b'100644 test.txt ' + bytes.fromhex('abcd'*10) + \
             b'010000 test_dir ' + bytes.fromhex('abcd'*10)
         assert tested_tree_node.cached_encoded_data is not None
+
+
+class TestCommit:
+    def test_encode(self):
+        date = datetime(2021, 8, 28, 16, 50, 13)
+        commit = Commit(
+            'Vasya Pupkin',
+            'vasya@vpupkin.com',
+            'First commit.',
+            'a94a8fe5ccb19ba61c4c0873d391e987982fbbd3',
+            date,
+        )
+        timestamp: str = pytz.utc.localize(date).strftime('%s %z')
+        author: bytes = b'Vasya Pupkin <vasya@vpupkin.com> ' + timestamp.encode() + b'\n'
+
+        assert commit.encode() == \
+            b'commit 178\x00' + \
+            b'tree a94a8fe5ccb19ba61c4c0873d391e987982fbbd3\n' + \
+            b'author ' + author + \
+            b'committer ' + author + \
+            b'\n' + \
+            b'First commit.\n'
+
+        assert commit.cached_encoded_data is not None
+
