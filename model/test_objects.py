@@ -2,6 +2,7 @@ import pytest
 import pytz
 
 from datetime import datetime
+from pathlib import Path
 from typing import List
 from model.objects import Blob, Commit, TreeNode, TreeNodeEntry
 
@@ -30,10 +31,10 @@ class TestBlob:
 
         proper_blob = Blob.decode(proper_data)
 
-        assert proper_blob.data == 'Hello World!'
+        assert proper_blob.data == b'Hello World!'
 
     def test_encode(self):
-        blob = Blob('Hello World!')
+        blob = Blob(b'Hello World!')
 
         assert blob.encode() == b'blob 12\x00Hello World!'
         assert blob.cached_encoded_data is not None
@@ -45,27 +46,27 @@ class TestNode:
 
         tree_node_entries.append(
             TreeNodeEntry(
-                'test_dir',
+                Path('test_dir'),
                 'abcd'*10,
-                '010000',
                 'tree',
+                False,
             )
         )
         tree_node_entries.append(
             TreeNodeEntry(
-                'test.txt',
+                Path('test.txt'),
                 'abcd'*10,
-                '100644',
                 'blob',
+                False
             )
         )
 
         tested_tree_node = TreeNode(tree_node_entries)
 
         assert tested_tree_node.encode() == \
-            b'tree 72\x00' + \
-            b'100644 test.txt ' + bytes.fromhex('abcd'*10) + \
-            b'010000 test_dir ' + bytes.fromhex('abcd'*10)
+            b'tree 71\x00' + \
+            b'100644 test.txt\x00' + bytes.fromhex('abcd'*10) + \
+            b'40000 test_dir\x00' + bytes.fromhex('abcd'*10)
         assert tested_tree_node.cached_encoded_data is not None
 
 
@@ -78,6 +79,7 @@ class TestCommit:
             'First commit.',
             'a94a8fe5ccb19ba61c4c0873d391e987982fbbd3',
             date,
+            ''
         )
         timestamp: str = pytz.utc.localize(date).strftime('%s %z')
         author: bytes = b'Vasya Pupkin <vasya@vpupkin.com> ' + timestamp.encode() + b'\n'

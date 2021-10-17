@@ -4,7 +4,8 @@ import hashlib
 import pytz
 
 from datetime import datetime
-from typing import Literal, List, Union
+from pathlib import Path
+from typing import List, Union
 
 
 class Object:
@@ -20,11 +21,11 @@ class Object:
         self.type = type
         self.cached_encoded_data: Union[bytes, None] = None
 
-    def encode_with_header(self, data_as_bytes: bytes) -> bytes:
-        len_of_data_as_bytes: str = str(len(data_as_bytes))
+    def encode_with_header(self, data: bytes) -> bytes:
+        len_of_data_as_bytes: str = str(len(data))
         full_content_as_bytes = self.type.encode('utf-8') \
             + b' ' + len_of_data_as_bytes.encode('utf-8') \
-            + b'\x00' + data_as_bytes
+            + b'\x00' + data
 
         return full_content_as_bytes
 
@@ -71,19 +72,18 @@ class Blob(Object):
         if Blob.verify_encoded_data(encoded_data) == False:
             raise Exception('Invalid byte sequence')
         
-        data = encoded_data.split(b' ', 1)[1].split(b'\x00')[1].decode()
+        data = encoded_data.split(b' ', 1)[1].split(b'\x00')[1]
 
         return Blob(data)
 
-    def __init__(self, data: str):
+    def __init__(self, data: bytes):
         super().__init__('blob')
 
-        self.data: str = data
+        self.data: bytes = data
 
     def encode(self) -> bytes:
         if self.cached_encoded_data == None:
-            data_as_bytes: bytes = self.data.encode('utf-8')
-            self.cached_encoded_data = self.encode_with_header(data_as_bytes)
+            self.cached_encoded_data = self.encode_with_header(self.data)
 
         assert not self.cached_encoded_data is None
 
@@ -93,19 +93,27 @@ class Blob(Object):
 class TreeNodeEntry:
     def __init__(
         self, 
-        name: str, 
-        oid: str, 
-        mode: str, 
-        type: Union[Literal['blob'], Literal['tree']],
+        path: Path,
+        object_oid: str,
+        object_type: str,
+        is_executable: bool
     ):
-        self.mode = mode
-        self.name = name
-        self.oid = oid
-        self.type = type
+        self.name = path.name
+        self.full_name = str(path.resolve())
+        self.oid = object_oid
+        self.type = object_type
+
+        if self.type == 'tree':
+            self.mode = '40000'
+        elif self.type == 'blob':
+            if is_executable:
+                self.mode = '100755'
+            else:
+                self.mode = '100644'
 
     def to_byte_string(self) -> bytes:
         return \
-            bytes(f'{self.mode} {self.name} ', 'utf-8') \
+            bytes(f'{self.mode} {self.name}\x00', 'utf-8') \
             + bytes.fromhex(self.oid)
 
 
@@ -117,7 +125,7 @@ class TreeNode(Object):
     def __init__(self, entries: List[TreeNodeEntry]):
         super().__init__('tree')
 
-        self.entries = sorted(entries, key = lambda x: x.name)
+        self.entries = sorted(entries, key = lambda x: x.full_name)
     
     def encode(self) -> bytes:
         if self.cached_encoded_data == None:
@@ -141,7 +149,7 @@ class Commit(Object):
         message: str,
         tree_oid: str,
         date: datetime,
-        parent: Union[str, None] = None,
+        parent: str,
     ):
         super().__init__('commit')
 
@@ -164,7 +172,7 @@ class Commit(Object):
                 self.message + '\n',
             ]
 
-            if self.parent != None:
+            if self.parent != '':
                 lines.insert(1, f'parent {self.parent}')
 
             data_as_bytes = '\n'.join(lines).encode()
