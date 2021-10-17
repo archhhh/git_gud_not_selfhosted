@@ -1,7 +1,8 @@
-1) Implement basic functionality (commit all files)
+1) Implement basic functionality (commit all files) v
 
-- git init (create essentials)
-- git commit (create commit out of all files)
+- git init (create essentials) v
+- git commit (create commit out of all files) v 
+- tests
 
 2) Implement index and git add
 
