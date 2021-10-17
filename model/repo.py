@@ -77,3 +77,62 @@ class Repo:
                 file.close()
         except:
             raise Exception('fatal: cant write to HEAD')
+
+    def write_object(self, object: Object) -> None:
+        encoded_data = object.encode()
+        object_id = object.get_oid()
+        compressed_encoded_data = zlib.compress(encoded_data)
+        dir_name = object_id[0:2]
+        file_name = object_id[2:]
+        objects_path = self.storage_path.joinpath('objects').joinpath(dir_name)
+        temp_object_path = objects_path.joinpath(f'temp_obj_{file_name}')
+
+        try:
+            objects_path.mkdir(parents=True, exist_ok=True)
+
+            with open(str(temp_object_path), 'wb+') as file:
+                file.write(compressed_encoded_data)
+                file.close()
+
+            temp_object_path.rename(objects_path.joinpath(file_name))
+        except: 
+            raise Exception(f'fatal: cannot write object with type {object.type} and oid {object.get_oid()}')
+
+    def build_tree(self, current_path: Path) -> TreeNode:
+        ignore: List[str] = [
+            STORAGE_DIRECTORY,
+            '.mypy_cache',
+            '.pytest_cache',
+            '__pycache__',
+            '.git',
+        ]
+
+        list_of_entries: List[TreeNodeEntry] = []
+
+        for child_path in current_path.iterdir():            
+            if child_path.name in ignore:
+                continue
+
+            current_object: Object = Object('dummy')
+
+            if child_path.is_dir():
+                current_object = self.build_tree(child_path.resolve())
+            else:
+                current_object = Blob(child_path.read_bytes())
+                self.write_object(current_object)
+
+            list_of_entries.append(
+                TreeNodeEntry(
+                    child_path,
+                    current_object.get_oid(),
+                    current_object.type,
+                    os.access(str(child_path.resolve()), os.X_OK)
+                )
+            )   
+
+        current_tree: TreeNode = TreeNode(list_of_entries)
+
+        self.write_object(current_tree)
+
+        return current_tree    
+            
