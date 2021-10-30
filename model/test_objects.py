@@ -40,6 +40,39 @@ class TestBlob:
         assert blob.cached_encoded_data is not None
 
 
+class TestNodeEntry:
+    def test_to_byte_string(self):
+        entry_one = TreeNodeEntry(
+            Path('test_dir'),
+            'abcd'*10,
+            'tree',
+            False,
+        )
+        entry_two = TreeNodeEntry(
+            Path('dir/test.txt'),
+            'abcd'*10,
+            'blob',
+            False
+        )
+        entry_three = TreeNodeEntry(
+            Path('test.sh'),
+            'abcd'*10,
+            'blob',
+            True
+        )
+
+        entry_one_byte_string = entry_one.to_byte_string()
+        entry_two_byte_string = entry_two.to_byte_string()
+        entry_three_byte_string = entry_three.to_byte_string()
+
+        assert entry_one_byte_string == \
+            b'40000 test_dir\x00' + bytes.fromhex('abcd'*10)
+        assert entry_two_byte_string == \
+            b'100644 test.txt\x00' + bytes.fromhex('abcd'*10)
+        assert entry_three_byte_string == \
+            b'100755 test.sh\x00' + bytes.fromhex('abcd'*10)
+
+
 class TestNode:
     def test_encode(self):
         tree_node_entries: List[TreeNodeEntry] = []

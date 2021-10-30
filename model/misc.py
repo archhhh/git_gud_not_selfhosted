@@ -3,7 +3,7 @@ from pathlib import Path
 
 class RepoObjPath:
     def __init__(self, path: Path, type: str):
-        self.path = path
+        self.path = path.resolve()
         self.type = type
     
     def create_obj(self) -> None:
