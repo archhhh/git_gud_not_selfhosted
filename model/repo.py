@@ -22,6 +22,7 @@ class Repo:
         objects_to_create: List[RepoObjPath] = [
             RepoObjPath(storage_path.joinpath('objects'), 'dir'),
             RepoObjPath(storage_path.joinpath('ref'), 'dir'),
+            RepoObjPath(storage_path.joinpath('index'), 'file'),
             RepoObjPath(storage_path.joinpath('config'), 'file'),
             RepoObjPath(storage_path.joinpath('HEAD'), 'file')
         ]

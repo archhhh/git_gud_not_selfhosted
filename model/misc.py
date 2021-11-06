@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 class RepoObjPath:
     def __init__(self, path: Path, type: str):
         self.path = path.resolve()
