@@ -7,7 +7,7 @@
 2) Implement index and git add
 
 - git init (modify to create index) v
-- git add (add to index, add only modified files)
+- git add (add to index) v
 - git commit (modify to commit only from index)
 - git checkout
 - git diff (implement basic diff)
