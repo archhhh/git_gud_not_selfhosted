@@ -4,9 +4,9 @@ import os
 from pathlib import Path
 from typing import List
 
+from model.index import Index
 from model.objects import Object, TreeNode, Blob, TreeNodeEntry, TreeNode
 from model.misc import RepoObjPath
-from utils.constants import STORAGE_DIRECTORY
 
 
 class Repo:
@@ -14,7 +14,7 @@ class Repo:
     def init_repo(path: Path):
         path = path.resolve()
 
-        storage_path = path.joinpath(STORAGE_DIRECTORY)
+        storage_path = path.joinpath('.gitgud')
 
         if storage_path.is_dir():
             raise Exception('fatal: already a git repository')
@@ -43,7 +43,7 @@ class Repo:
         prev_path_obj = None
 
         while current_path_obj != prev_path_obj:
-            if current_path_obj.joinpath(STORAGE_DIRECTORY).is_dir():
+            if current_path_obj.joinpath('.gitgud').is_dir():
                 return Repo(current_path_obj)
             
             prev_path_obj = current_path_obj
@@ -53,8 +53,17 @@ class Repo:
 
     def __init__(self, path: Path):
         self.repo_path = path
-        self.storage_path: Path = self.repo_path.resolve().joinpath(STORAGE_DIRECTORY)
+        self.storage_path: Path = self.repo_path.resolve().joinpath('.gitgud')
         self.head_path: Path = self.storage_path.joinpath('HEAD')
+        self.index: Index = Index.read_index(self.storage_path.joinpath('index'))
+
+        self.ignore: List[str] = [
+            '.gitgud',
+            '.mypy_cache',
+            '.pytest_cache',
+            '__pycache__',
+            '.git',
+        ]
 
         if not self.storage_path.is_dir(): 
             raise Exception('fatal: not a git repository (or any of the parent directories): .git')
@@ -100,18 +109,10 @@ class Repo:
             raise Exception(f'fatal: cannot write object with type {object.type} and oid {object.get_oid()}')
 
     def build_tree(self, current_path: Path) -> TreeNode:
-        ignore: List[str] = [
-            STORAGE_DIRECTORY,
-            '.mypy_cache',
-            '.pytest_cache',
-            '__pycache__',
-            '.git',
-        ]
-
         list_of_entries: List[TreeNodeEntry] = []
 
         for child_path in current_path.iterdir():            
-            if child_path.name in ignore:
+            if child_path.name in self.ignore:
                 continue
 
             current_object: Object = Object('dummy')
@@ -136,4 +137,44 @@ class Repo:
         self.write_object(current_tree)
 
         return current_tree    
-            
+
+    def add_to_index(self, paths: List[Path]):
+        resolved_paths: List[Path] = []
+
+        for path in paths:
+            path_str = str(path.resolve())
+            repo_path_str = str(self.repo_path)
+
+            if not path_str.startswith(repo_path_str):
+                raise Exception(f'fatal: Arg {path} is not a part of repo')
+
+            if path.is_dir():
+                resolved_paths.extend(path.glob('**/*'))
+            elif path.is_file():
+                resolved_paths.append(path)
+
+        for resolved_path in resolved_paths:
+            relative_path = Path(str(resolved_path)[len(repo_path_str + '/'):])
+
+            if resolved_path.is_dir() or resolved_path.name in self.ignore:
+                continue
+
+            should_ignore = False
+
+            for parent in relative_path.parents:
+                if parent.name in self.ignore:           
+                    should_ignore = True
+                    break
+
+            if not should_ignore:
+                current_object = Blob(resolved_path.read_bytes())
+
+                self.write_object(current_object)
+                self.index.add_entry(
+                    relative_path,
+                    current_object.get_oid(),
+                    resolved_path.stat(),
+                    os.access(str(resolved_path), os.X_OK)
+                )
+
+        self.index.write()

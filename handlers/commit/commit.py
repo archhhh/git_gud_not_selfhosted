@@ -1,7 +1,6 @@
 from datetime import datetime
 from pathlib import Path
 
-from utils.constants import GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME
 from model.repo import Repo
 from model.objects import Commit, TreeNode
 
@@ -13,8 +12,8 @@ def handle_commit(commit_message: str = 'Default commit message') -> None:
         parent: str = current_repo.read_head()
 
         commit: Commit = Commit(
-            GIT_AUTHOR_NAME,
-            GIT_AUTHOR_EMAIL,
+            'test_name',
+            'test_email',
             commit_message,
             built_tree.get_oid(),
             datetime.utcnow(),

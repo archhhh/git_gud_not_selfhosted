@@ -1,5 +1,0 @@
-import os
-
-GIT_AUTHOR_NAME = os.environ['GIT_AUTHOR_NAME']
-GIT_AUTHOR_EMAIL = os.environ['GIT_AUTHOR_EMAIL']
-STORAGE_DIRECTORY = '.gud'

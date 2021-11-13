@@ -17,7 +17,7 @@ class IndexEntry:
         st_ino: int,
         st_uid: int,
         st_gid: int,
-        st_rsize: int,
+        st_size: int,
     ): 
         self.ctime_s = st_ctime
         self.ctime_ns = 0
@@ -27,7 +27,7 @@ class IndexEntry:
         self.ino = st_ino
         self.uid = st_uid
         self.gid = st_gid
-        self.file_size = st_rsize
+        self.file_size = st_size
 
         if is_executable:
             self.mode = int('100755', 8)
@@ -132,6 +132,8 @@ class Index:
     @staticmethod
     def validate_data(data: bytes) -> bool:
         # TODO: verify oids and path_names
+        if len(data) == 0:
+            return True
     
         header = data[0:12]
 
@@ -189,17 +191,18 @@ class Index:
         except:
             raise Exception('fatal: Cant read index file')
 
-        print(index_file_content)
-
         if not Index.validate_data(index_file_content):
             raise Exception('fatal: Corrupted index file')
+
+        index = Index(index_path)
+
+        if len(index_file_content) == 0:
+            return index
 
         header = index_file_content[0:12]
         number_of_entries = int(header[8:12].hex(), 16)
 
         current_byte_offset = 12
-
-        index = Index(index_path)
 
         for _ in range(number_of_entries):
             fixed_entry_info_len = 62
@@ -254,7 +257,7 @@ class Index:
             stat.st_ino,
             stat.st_uid,
             stat.st_gid,
-            stat.st_rsize
+            stat.st_size
         )
 
         self.discard_conflicts(entry)
@@ -278,15 +281,23 @@ class Index:
 
     def write(self) -> None:
         encoded_data = self.encode()
-        temp_path = self.index_path.joinpath('.tmp')
+        temp_path = self.index_path.parent.joinpath('.index.tmp')
 
         try:
-            temp_path.mkdir(parents=True, exist_ok=True)
+            temp_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(str(temp_path), 'wb+') as file:
                 file.write(encoded_data)
                 file.close()
 
             temp_path.rename(self.index_path)
-        except: 
-            raise Exception('fatal: Cannot write index')
+        except Exception as exc: 
+            raise Exception(f'fatal: Cannot write index, {exc}')
+
+    def __str__(self) -> str:
+        string_rep = ''
+
+        for entry_key in self.entries:
+            string_rep += f'{entry_key} {self.entries[entry_key].oid}\n'
+
+        return string_rep

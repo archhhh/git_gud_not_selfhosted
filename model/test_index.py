@@ -186,6 +186,10 @@ class TestIndex:
 
         assert Index.validate_data(valid_data_multiple_entries + checksum) == True
 
+        empty_data = b''
+
+        assert Index.validate_data(empty_data) == True 
+
     def test_add_entry(self, fs):
         index_path = Path('/index').resolve()
         index = Index(index_path)
@@ -234,7 +238,7 @@ class TestIndex:
         stat.st_ino = 472220
         stat.st_uid = 1000
         stat.st_gid = 1000
-        stat.st_rsize = 81
+        stat.st_size = 81
 
         index.add_entry(
             Path('test/dir'),
@@ -257,6 +261,17 @@ class TestIndex:
         assert index.entries['test/dir'].path == valid_entry_one.path
         assert index.entries['test/dir'].oid == valid_entry_one.oid
     
+    def test_read_empty_index(self, fs):
+        index_path = Path('/index').resolve()
+
+        with open(str(index_path), 'wb+', 0) as index_file:
+            index_file.close()
+
+        index = Index.read_index(index_path)
+        
+        assert str(index.index_path) == str(index_path)
+        assert len(index.entries) == 0
+
     def test_read_index(self, fs):
         index_path = Path('/index').resolve()
 

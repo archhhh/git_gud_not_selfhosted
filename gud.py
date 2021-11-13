@@ -2,6 +2,7 @@ import argparse
 
 from handlers.init.init import handle_init
 from handlers.commit.commit import handle_commit
+from handlers.add.add import handle_add
 
 if __name__ == '__main__':
     parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -32,6 +33,17 @@ if __name__ == '__main__':
         help='commit message',
     )
 
+    add_subparser: argparse.ArgumentParser = subparsers.add_parser(
+        'add', 
+        help='add help',
+    )
+    add_subparser.add_argument(
+        'paths',
+        nargs='+',
+        default='paths to stage',
+        help='list string paths',
+    )
+
     args: argparse.Namespace = parser.parse_args()
     command: str = args.command
     
@@ -43,3 +55,11 @@ if __name__ == '__main__':
         handle_commit(args.m)
 
         exit(0)
+    elif command == 'add':
+        handle_add(args.paths)
+
+        exit(0)
+    else:
+        print('fatal: Unsupported command')
+
+        exit(1)
