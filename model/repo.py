@@ -2,7 +2,7 @@ import zlib
 import os
 
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 from model.index import Index
 from model.objects import Object, TreeNode, Blob, TreeNodeEntry, TreeNode
@@ -109,7 +109,7 @@ class Repo:
             raise Exception(f'fatal: cannot write object with type {object.type} and oid {object.get_oid()}')
 
     def build_tree(self, current_path: Path) -> TreeNode:
-        list_of_entries: List[TreeNodeEntry] = []
+        entries: Dict[str, TreeNodeEntry] = []
 
         for child_path in current_path.iterdir():            
             if child_path.name in self.ignore:
@@ -123,26 +123,25 @@ class Repo:
                 current_object = Blob(child_path.read_bytes())
                 self.write_object(current_object)
 
-            list_of_entries.append(
-                TreeNodeEntry(
-                    child_path,
-                    current_object.get_oid(),
-                    current_object.type,
-                    os.access(str(child_path.resolve()), os.X_OK)
-                )
-            )   
+            entries[child_path.name] = TreeNodeEntry(
+                child_path,
+                current_object.get_oid(),
+                current_object.type,
+                os.access(str(child_path.resolve()), os.X_OK),
+                None
+            )
 
-        current_tree: TreeNode = TreeNode(list_of_entries)
+        current_tree: TreeNode = TreeNode(entries)
 
         self.write_object(current_tree)
 
-        return current_tree    
+        return current_tree
 
     def add_to_index(self, paths: List[Path]):
         resolved_paths: List[Path] = []
 
         for path in paths:
-            path_str = str(path.resolve())
+            path_str = str(path)
             repo_path_str = str(self.repo_path)
 
             if not path_str.startswith(repo_path_str):
