@@ -1,6 +1,7 @@
 import pytest
 import pytz
 
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
@@ -186,6 +187,108 @@ class TestNode:
         assert decoded_tree.entries['test.txt'] == tree_node_entries['test.txt']
         assert 'test' in decoded_tree.entries
         assert decoded_tree.entries['test'] == tree_node_entries['test']
+
+    def test_add(self):
+        tree_node_entries: Dict[str, TreeNodeEntry] = {}
+
+        tree_node_entries['test_dir'] = TreeNodeEntry(
+            Path('test_dir'),
+            'abcd'*10,
+            'tree',
+            False,
+            None,
+        )
+        tree_node_entries['test.txt'] = TreeNodeEntry(
+            Path('test.txt'),
+            'abcd'*10,
+            'blob',
+            False,
+            None,
+        )
+        tree_node_entries['test'] = TreeNodeEntry(
+            Path('test'),
+            'abcd'*10,
+            'tree',
+            False,
+            None,
+        )
+
+        tree_node = TreeNode(tree_node_entries)
+
+        tree_node_entry_to_add = TreeNodeEntry(
+            Path('test'),
+            'abcd'*10,
+            'blob',
+            False,
+            None,
+        )
+
+        tree_node.add(tree_node_entry_to_add, ['test'])
+
+        tree_bytes = \
+            b'tree 103\x00' + \
+            b'100644 test\x00' + bytes.fromhex('abcd'*10) + \
+            b'100644 test.txt\x00' + bytes.fromhex('abcd'*10) + \
+            b'40000 test_dir\x00' + bytes.fromhex('abcd'*10)
+
+        assert len(tree_node.entries) == 3
+        assert tree_node.entries['test'] == tree_node_entry_to_add
+        assert tree_node.get_oid() == hashlib.sha1(tree_bytes).hexdigest()
+
+        tree_node.add(tree_node_entry_to_add, ['test', 'test2', 'test1'])
+        tree_node.add(tree_node_entry_to_add, ['test', 'test1'])
+
+        assert len(tree_node.entries) == 3
+        assert tree_node.entries['test'].type == 'tree' 
+        assert isinstance(tree_node.entries['test'].content, TreeNode)
+
+        tested_tree_node = tree_node.entries['test'].content
+
+        assert len(tested_tree_node.entries) == 2
+        assert tested_tree_node.entries['test1'] == tree_node_entry_to_add
+        assert tested_tree_node.entries['test2'].type == 'tree'
+        assert isinstance(tested_tree_node.entries['test2'].content, TreeNode) 
+
+        tested_tree_node = tested_tree_node.entries['test2'].content
+
+        assert len(tested_tree_node.entries) == 1
+        assert tested_tree_node.entries['test1'] == tree_node_entry_to_add
+
+        test2_tree_bytes = \
+            b'tree 32\x00' + \
+            b'100644 test\x00' + bytes.fromhex('abcd'*10)
+        test2_tree_oid = hashlib.sha1(test2_tree_bytes).hexdigest()
+
+        assert tree_node.entries['test'].content.entries['test2'].oid == test2_tree_oid
+
+        test_tree_bytes = \
+            b'tree 64\x00' + \
+            b'100644 test\x00' + bytes.fromhex('abcd'*10) + \
+            b'40000 test2\x00' + bytes.fromhex(test2_tree_oid)
+        test_tree_oid = hashlib.sha1(test_tree_bytes).hexdigest()
+
+        assert tree_node.entries['test'].oid == test_tree_oid
+
+        tree_bytes = \
+            b'tree 102\x00' + \
+            b'100644 test.txt\x00' + bytes.fromhex('abcd'*10) + \
+            b'40000 test\x00' + bytes.fromhex(test_tree_oid) + \
+            b'40000 test_dir\x00' + bytes.fromhex('abcd'*10)
+        tree_oid = hashlib.sha1(tree_bytes).hexdigest()
+
+        assert tree_node.get_oid() == tree_oid
+
+        tree_node.add(tree_node_entry_to_add, ['test', 'test2'])
+
+        assert len(tree_node.entries) == 3
+        assert tree_node.entries['test'].type == 'tree' 
+        assert isinstance(tree_node.entries['test'].content, TreeNode)
+        
+        tested_tree_node = tree_node.entries['test'].content
+
+        assert len(tested_tree_node.entries) == 2
+        assert tested_tree_node.entries['test1'] == tree_node_entry_to_add
+        assert tested_tree_node.entries['test2'] == tree_node_entry_to_add
 
 
 class TestCommit:

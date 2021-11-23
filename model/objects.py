@@ -5,7 +5,7 @@ import pytz
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
 
 
 class Object:
@@ -168,6 +168,19 @@ class TreeNodeEntry:
 
         return TreeNodeEntry(name, oid, type, is_executable, None)
 
+    def add(self, entry: TreeNodeEntry, path_parts: Tuple[str, ...]):
+        if self.type != 'tree':
+            return
+
+        if isinstance(self.content, Blob):
+            return
+
+        if self.content == None: 
+            return
+
+        self.content.add(entry, path_parts)
+        self.oid = self.content.get_oid()
+
 
 class TreeNode(Object):
     def __init__(
@@ -229,6 +242,35 @@ class TreeNode(Object):
 
         return TreeNode(entries)
 
+    def add(self, entry: TreeNodeEntry, path_parts: Tuple[str, ...]):
+        if len(path_parts) == 0:
+            return
+
+        self.cached_encoded_data = None
+
+        current_part = path_parts[0]
+        rest_parts = path_parts[1:]
+
+        if len(rest_parts) == 0:
+            self.entries[current_part] = entry
+
+            return
+
+        if current_part not in self.entries or self.entries[current_part].type != 'tree' or self.entries[current_part].content is None:
+            node = TreeNode({})
+
+            node.add(entry, rest_parts)
+
+            self.entries[current_part] = TreeNodeEntry(
+                Path(current_part),
+                node.get_oid(),
+                'tree',
+                False,
+                node
+            )
+        else:
+            self.entries[current_part].add(entry, rest_parts)
+
 
 class Commit(Object):
     def __init__(
@@ -258,8 +300,8 @@ class Commit(Object):
             self.email == other.email and \
             self.message == other.message and \
             self.tree_oid == other.tree_oid and \
-            self.timestamp == other.timestamp
-            #self.parent == other.parent 
+            self.timestamp == other.timestamp and \
+            self.parent == other.parent 
 
     def encode(self) -> bytes:
         if self.cached_encoded_data == None:
