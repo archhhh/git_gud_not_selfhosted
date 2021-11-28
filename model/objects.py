@@ -150,11 +150,11 @@ class TreeNodeEntry:
 
     @staticmethod
     def decode(encoded_data: bytes) -> TreeNodeEntry:
-        split_data = encoded_data.split(b'\x00')
+        split_data = encoded_data.split(b'\x00', 1)
 
         if len(split_data) != 2 or len(split_data[1]) != 20:
             raise Exception('fatal: Invalid byte sequence')
-        
+
         [mode_bytes, name_bytes] = split_data[0].split(b' ')
         oid = split_data[1].hex()
         mode = mode_bytes.decode('utf-8')

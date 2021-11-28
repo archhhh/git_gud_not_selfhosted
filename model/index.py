@@ -279,6 +279,11 @@ class Index:
 
         return data + checksum
 
+    def clear(self) -> None:
+        self.entries = {}
+
+        self.write()
+
     def write(self) -> None:
         encoded_data = self.encode()
         temp_path = self.index_path.parent.joinpath('.index.tmp')

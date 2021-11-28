@@ -2,10 +2,10 @@ import zlib
 import os
 
 from pathlib import Path
-from typing import Dict, List
+from typing import List, Union
 
 from model.index import Index
-from model.objects import Object, TreeNode, Blob, TreeNodeEntry, TreeNode
+from model.objects import Commit, Object, TreeNode, Blob, TreeNodeEntry, TreeNode
 from model.misc import RepoObjPath
 
 
@@ -108,34 +108,108 @@ class Repo:
         except: 
             raise Exception(f'fatal: cannot write object with type {object.type} and oid {object.get_oid()}')
 
-    def build_tree(self, current_path: Path) -> TreeNode:
-        entries: Dict[str, TreeNodeEntry] = []
+    def read_commit(
+        self,
+        commit_oid: str,
+    ) -> Union[Commit, None]:
+        if len(commit_oid) == 0:
+            return None
 
-        for child_path in current_path.iterdir():            
-            if child_path.name in self.ignore:
-                continue
+        if len(commit_oid) != 40:
+            raise Exception('fatal: Invalid commit_oid')
 
-            current_object: Object = Object('dummy')
+        try:
+            commit_oid_bytes = bytes.fromhex(commit_oid)
+        except:
+            raise Exception('fatal: Invalid commit_oid')
 
-            if child_path.is_dir():
-                current_object = self.build_tree(child_path.resolve())
-            else:
-                current_object = Blob(child_path.read_bytes())
-                self.write_object(current_object)
+        commit_dir = commit_oid[:2]
+        commit_file = commit_oid[2:]
+        commit_path = self.storage_path \
+                .joinpath('objects') \
+                .joinpath(commit_dir) \
+                .joinpath(commit_file)
 
-            entries[child_path.name] = TreeNodeEntry(
-                child_path,
-                current_object.get_oid(),
-                current_object.type,
-                os.access(str(child_path.resolve()), os.X_OK),
-                None
-            )
+        try:
+            commit_content = zlib.decompress(commit_path.read_bytes())
+        except:
+            raise Exception('fatal: Cannot open commit file')
 
-        current_tree: TreeNode = TreeNode(entries)
+        return Commit.decode(commit_content)
 
-        self.write_object(current_tree)
+    def read_tree(
+        self,
+        tree_oid: str,
+        paths_to_include: List[Path],
+        current_path: Path,
+        should_include_all: bool,
+    ) -> Union[TreeNode, None]:
+        if len(tree_oid) == 0:
+            return None
 
-        return current_tree
+        if len(tree_oid) != 40:
+            raise Exception('fatal: Invalid tree_oid')
+
+        try:
+            tree_oid_bytes = bytes.fromhex(tree_oid)
+        except:
+            raise Exception('fatal: Invalid tree_oid')
+
+        tree_dir = tree_oid[0:2]
+        tree_file = tree_oid[2:]
+
+        try:
+            tree_file_path = self.storage_path \
+                .joinpath('objects') \
+                .joinpath(tree_dir) \
+                .joinpath(tree_file)
+
+            tree_content = zlib.decompress(tree_file_path.read_bytes())
+        except:
+            raise Exception('fatal: Cannot open tree file')
+
+        tree_node = TreeNode.decode(tree_content)
+
+        for entry_key in tree_node.entries:
+            entry = tree_node.entries[entry_key]
+
+            if entry.type == 'tree':
+                should_include_entry = should_include_all
+                entry_full_path = current_path.joinpath(entry_key)
+
+                for path_to_include in paths_to_include:
+                    should_include_entry = should_include_entry or \
+                        str(path_to_include).startswith(
+                            str(entry_full_path)
+                        )
+
+                if should_include_entry:
+                    entry_tree_node = self.read_tree(
+                        entry.oid,
+                        paths_to_include,
+                        current_path.joinpath(entry_key),
+                        should_include_all
+                    )
+
+                    entry_tree_node_entry = TreeNodeEntry(
+                        Path(entry_key),
+                        entry.oid,
+                        'tree',
+                        False,
+                        entry_tree_node,
+                    )
+
+                    tree_node.entries[entry_key] = entry_tree_node_entry
+
+        return tree_node
+
+    def write_tree(self, tree: TreeNode):
+        self.write_object(tree)
+
+        for entry_key in tree.entries:
+            if tree.entries[entry_key].type == 'tree' and isinstance(tree.entries[entry_key].content, TreeNode):
+                self.write_tree(tree.entries[entry_key].content)
+
 
     def add_to_index(self, paths: List[Path]):
         resolved_paths: List[Path] = []
