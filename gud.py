@@ -5,6 +5,7 @@ from handlers.commit.commit import handle_commit
 from handlers.add.add import handle_add
 from handlers.list_head.list_head import handle_list_head
 from handlers.log.log import handle_log
+from handlers.checkout.checkout import handle_checkout
 
 if __name__ == '__main__':
     parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -55,6 +56,17 @@ if __name__ == '__main__':
         'log', 
         help='log commits starting from current',
     )
+
+    checkout_subparser: argparse.ArgumentParser = subparsers.add_parser(
+        'checkout', 
+        help='checkout certain commit',
+    )
+    checkout_subparser.add_argument(
+        'commit_id',
+        nargs=1,
+        help='id of the commit to be checked out'
+    )
+
     args: argparse.Namespace = parser.parse_args()
     command: str = args.command
     
@@ -76,6 +88,10 @@ if __name__ == '__main__':
         exit(0)
     elif command == 'log':
         handle_log()
+
+        exit(0)
+    elif command == 'checkout':
+        handle_checkout(args.commit_id[0])
 
         exit(0)
     else:

@@ -127,6 +127,35 @@ class Repo:
         except: 
             raise Exception(f'fatal: cannot write object with type {object.type} and oid {object.get_oid()}')
 
+    def read_blob(
+        self,
+        blob_oid: str,
+    ) -> Union[Blob, None]:
+        if len(blob_oid) == 0:
+            return None
+
+        if len(blob_oid) != 40:
+            raise Exception('fatal: Invalid blob_oid')
+
+        try:
+            blob_oid_bytes = bytes.fromhex(blob_oid)
+        except:
+            raise Exception('fatal: Invalid blob_oid')
+
+        blob_dir = blob_oid[:2]
+        blob_file = blob_oid[2:]
+        blob_path = self.storage_path \
+                .joinpath('objects') \
+                .joinpath(blob_dir) \
+                .joinpath(blob_file)
+
+        try:
+            blob_content = zlib.decompress(blob_path.read_bytes())
+        except:
+            raise Exception('fatal: Cannot open blob file')
+
+        return Blob.decode(blob_content)
+
     def read_commit(
         self,
         commit_oid: str,
@@ -229,7 +258,6 @@ class Repo:
             if tree.entries[entry_key].type == 'tree' and isinstance(tree.entries[entry_key].content, TreeNode):
                 self.write_tree(tree.entries[entry_key].content)
 
-
     def add_to_index(self, paths: List[Path]):
         resolved_paths: List[Path] = []
 
@@ -270,3 +298,42 @@ class Repo:
                 )
 
         self.index.write()
+
+    def restore_tree_node(self, tree_node: TreeNode, current_path: Path):
+        for entry_key in tree_node.entries:
+            entry = tree_node.entries[entry_key]
+            entry_path = current_path.joinpath(entry_key)
+
+            if entry.type == 'blob':
+                blob = self.read_blob(entry.oid)
+
+                if blob == None:
+                    raise Exception(f'fatal: Invalid blob at {entry.oid}')
+
+                entry_path.parent.mkdir(parents=True, exist_ok=True)
+
+                with open(str(entry_path), 'wb+') as file:
+                    file.write(blob.data)
+                    file.close()
+            elif entry.type == 'tree' and entry.content:
+                self.restore_tree_node(entry.content, entry_path)
+
+        return
+
+    def checkout(self, commit_oid: str):
+        commit = self.read_commit(commit_oid)
+
+        if commit != None:
+            tree_oid = commit.tree_oid
+            tree_node = self.read_tree(
+                tree_oid,
+                [],
+                Path(''),
+                True
+            )
+
+            self.restore_tree_node(tree_node, self.repo_path)
+            self.index.clear()
+            self.update_head(commit_oid)
+
+            print(f'{commit_oid} is checked out')
