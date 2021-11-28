@@ -271,6 +271,15 @@ class TreeNode(Object):
         else:
             self.entries[current_part].add(entry, rest_parts)
 
+    def print_tree(self, current_path: Path):
+        for entry_key in self.entries:
+            entry = self.entries[entry_key]
+
+            if entry.type == 'blob':
+                print(f'{str(current_path.joinpath(entry_key))} {entry.oid}')
+            elif entry.type == 'tree' and entry.content != None:
+                entry.content.print_tree(current_path.joinpath(entry_key))    
+
 
 class Commit(Object):
     def __init__(

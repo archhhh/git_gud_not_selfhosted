@@ -3,6 +3,7 @@ import argparse
 from handlers.init.init import handle_init
 from handlers.commit.commit import handle_commit
 from handlers.add.add import handle_add
+from handlers.list_head.list_head import handle_list_head
 
 if __name__ == '__main__':
     parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -44,6 +45,11 @@ if __name__ == '__main__':
         help='list string paths',
     )
 
+    list_head_subparser: argparse.ArgumentParser = subparsers.add_parser(
+        'list-head', 
+        help='list head files',
+    )
+
     args: argparse.Namespace = parser.parse_args()
     command: str = args.command
     
@@ -59,6 +65,10 @@ if __name__ == '__main__':
         handle_add(args.paths)
 
         exit(0)
+    elif command == 'list-head':
+        handle_list_head()
+
+        exit(1)
     else:
         print('fatal: Unsupported command')
 
