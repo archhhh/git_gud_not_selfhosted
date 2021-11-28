@@ -24,7 +24,8 @@ class Repo:
             RepoObjPath(storage_path.joinpath('ref'), 'dir'),
             RepoObjPath(storage_path.joinpath('index'), 'file'),
             RepoObjPath(storage_path.joinpath('config'), 'file'),
-            RepoObjPath(storage_path.joinpath('HEAD'), 'file')
+            RepoObjPath(storage_path.joinpath('HEAD'), 'file'),
+            RepoObjPath(storage_path.joinpath('ref/main'), 'file'),
         ]
 
         for object in objects_to_create:
@@ -75,6 +76,24 @@ class Repo:
             return head_content
         except:
             raise Exception('fatal: cannot open HEAD file')
+
+    def read_main(self) -> str:
+        try:
+            main_content = self.storage_path.joinpath('ref/main').read_text()
+
+            return main_content
+        except:
+            raise Exception('fatal: cannot open main ref file')
+
+    def update_main(self, value: str) -> None:
+        main_path = self.storage_path.joinpath('ref/main')
+
+        try: 
+            with open(str(main_path), 'w') as file:
+                file.write(value)
+                file.close()
+        except:
+            raise Exception('fatal: cant write to main ref file')
 
     def update_head(self, value: str) -> None:
         # need to support locks to allow multiple processes access

@@ -310,7 +310,26 @@ class Commit(Object):
             self.message == other.message and \
             self.tree_oid == other.tree_oid and \
             self.timestamp == other.timestamp and \
-            self.parent == other.parent 
+            self.parent == other.parent
+
+    def __str__(self):
+        author = f'{self.name} <{self.email}> {self.timestamp}'
+
+        lines: List[str] = [
+            f'commit {self.get_oid()}',
+            f'tree {self.tree_oid}',
+            f'author {author}',
+            f'committer {author}',
+            '',
+            self.message + '\n',
+        ]
+
+        if self.parent != '':
+            lines.insert(1, f'parent {self.parent}')
+
+        string_repr = '\n'.join(lines) + '\n=====\n'
+        
+        return string_repr
 
     def encode(self) -> bytes:
         if self.cached_encoded_data == None:

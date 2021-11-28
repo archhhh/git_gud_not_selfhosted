@@ -4,6 +4,7 @@ from handlers.init.init import handle_init
 from handlers.commit.commit import handle_commit
 from handlers.add.add import handle_add
 from handlers.list_head.list_head import handle_list_head
+from handlers.log.log import handle_log
 
 if __name__ == '__main__':
     parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -50,6 +51,10 @@ if __name__ == '__main__':
         help='list head files',
     )
 
+    log_subparser: argparse.ArgumentParser = subparsers.add_parser(
+        'log', 
+        help='log commits starting from current',
+    )
     args: argparse.Namespace = parser.parse_args()
     command: str = args.command
     
@@ -68,7 +73,11 @@ if __name__ == '__main__':
     elif command == 'list-head':
         handle_list_head()
 
-        exit(1)
+        exit(0)
+    elif command == 'log':
+        handle_log()
+
+        exit(0)
     else:
         print('fatal: Unsupported command')
 

@@ -54,6 +54,12 @@ def handle_commit(commit_message: str = 'Default commit message') -> None:
         )
 
         current_repo.write_object(commit)
+
+        current_main = current_repo.read_main()
+
+        if current_main == current_head:
+            current_repo.update_main(commit.get_oid())
+
         current_repo.update_head(commit.get_oid())
         current_index.clear()
 
