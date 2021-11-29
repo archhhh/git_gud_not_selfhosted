@@ -6,12 +6,12 @@ the original git implementation.
 ### Why?
 
 The attempt to finally understand better what is going on under the hood of the tool of my constant use.
-To discover the design choices that make git
+To discover the design choices that make up git
 
 ### Stack
 
 Python 3.8 with the help of native libs (hashlib for SHA1 hash algorithm, zlib for compression, pathlib to work with paths).
-Used pytz to work with dates, pytest, pyfakefs for tests
+Used pytz to work with dates, pytest, pyfakefs for tests. argparse lib is used to help with defining CLI.
 
 ## What is in the package 
 
