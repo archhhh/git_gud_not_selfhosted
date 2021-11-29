@@ -1,23 +1,32 @@
-1) Implement basic functionality (commit all files) v
+# Git Gud
 
-- git init (create essentials) v
-- git commit (create commit out of all files) v 
-- tests v 
+Single branch implementation of git from scratch. The data structures, CLI follows the same structure as in 
+the original git implementation.
 
-2) Implement index and git add
+### Why?
 
-- git init (modify to create index) v
-- git add (add to index) v
-- git commit (modify to commit only from index)
-- git checkout
-- git diff (implement basic diff)
-- git status (show current status)
+The attempt to finally understand better what is going on under the hood of the tool of my constant use.
+To discover the design choices that make git
 
-3) Implement branching
+### Stack
 
-- git branch
-- git merge
+Python 3.8 with the help of native libs (hashlib for SHA1 hash algorithm, zlib for compression, pathlib to work with paths).
+Used pytz to work with dates, pytest, pyfakefs for tests
 
+## What is in the package 
 
-# Models (UML)
-![Untitled Diagram](https://user-images.githubusercontent.com/26677794/140615411-76b97249-ccbd-410f-a5cb-f67303bd083b.jpg)
+- init
+- commit with staging
+- logging the commits
+- checking out the commits
+- unit/integration tests with moderate coverage
+
+## What is not in the package
+
+- multibranching and operations related to it
+- remote repos
+- diff and status report
+- and basically everything that's not included in what's in the package
+
+## Models (UML)
+![Untitled Diagram](https://user-images.githubusercontent.com/26677794/143918700-85c94f17-f9da-4a9a-b243-64c929096dc9.png)
